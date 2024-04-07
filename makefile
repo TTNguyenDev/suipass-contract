@@ -1,6 +1,6 @@
 ORIGINAL_PACKAGE_ADDR="0xfb716597619494de6f2c5b8b82b5947f530dab82f63009e4027e126b8f3d9787"
 
-PACKAGE_ADDR="0xfb716597619494de6f2c5b8b82b5947f530dab82f63009e4027e126b8f3d9787"
+PACKAGE_ADDR="0xab4438620a8763207291d38dd0e56fce50fbc0e8073895482328925943e395dc"
 UPGRADE_CAP="0x492145c7bc5fd925a966862af320ee3656ff89755278c65dd5bf41ad4d4867f6"
 ADDR="0x57f105ec99c91f40b2a80b2bca774d81e197cb7032c97f0518ada7121f8f4b69"
 SUIPASS_ADDR="0x97b873c6ebae75bd98ec5aa41d3b356f349def5f014d7a0599812ee035a55271"
@@ -89,3 +89,15 @@ resolve_request:
 		"evidence ne" \
 		2 \
 		--gas-budget 100000000
+
+provider: owner
+	sui client call \
+		--function add_provider_v3 \
+		--module suipass \
+		--package ${PACKAGE_ADDR} \
+		--json \
+		--args \
+			${ADMIN_CAP} \
+			'["Created at least 90 days ago.A"]' \
+		--gas-budget 100000000
+
