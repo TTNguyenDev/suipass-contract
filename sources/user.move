@@ -64,12 +64,12 @@ module suipass::user {
     // Accessors
     //======================================================================
 
-    public fun levels(user: &User): VecMap<ID, u16> {
+    public fun criteria(user: &User): VecMap<ID, vector<u8>> {
         let ids = vec_map::keys(&user.approvals);
         let len = vector::length(&ids);
         std::debug::print(&ids);
 
-        let result: VecMap<ID, u16> = vec_map::empty();
+        let result: VecMap<ID, vector<u8>> = vec_map::empty();
         loop {
             if (len == 0) break;
             len = len - 1;
@@ -78,7 +78,7 @@ module suipass::user {
             let approval = vec_map::get(&user.approvals, id);
 
             // TODO: handle levels
-            vec_map::insert(&mut result, *id, 0)//approval::criteria(approval));
+            vec_map::insert(&mut result, *id, approval::criteria(approval));
         };
         result
     }

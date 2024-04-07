@@ -203,8 +203,8 @@ module suipass::suipass {
     }
 
     public fun calculate_user_score(suiPass: &SuiPass, user: &User, _: &mut TxContext): u16 {
-        let levels = user::levels(user);
-        let ids = vec_map::keys(&levels);
+        let criteria = user::criteria(user);
+        let ids = vec_map::keys(&criteria);
         let len = vector::length(&ids);
 
         let result: u16 = 0;
@@ -214,15 +214,10 @@ module suipass::suipass {
 
             let id = vector::borrow(&ids, len);
 
-            let level = *vec_map::get(&levels, id);
-
+            let criterion = *vec_map::get(&criteria, id);
             let provider = vec_map::get(&suiPass.providers, id);
-            let max_score = provider::max_score(provider);
-            let total_levels = provider::max_level(provider);
 
-            let increase = (level / total_levels * max_score);
-
-            result = result + increase;
+            result = result + provider::score(provider, &criterion);
         };
 
         result
@@ -262,5 +257,11 @@ module suipass::suipass {
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx)
+    }
+
+    #[test_only]
+    public fun providers(suipass: &SuiPass, idx: u64): (&ID, &Provider) {
+        vec_map::get_entry_by_idx(&suipass.providers, idx)
+        
     }
 }

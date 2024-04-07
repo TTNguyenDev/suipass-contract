@@ -1,6 +1,5 @@
 module suipass::approval {
     use std::string::{Self, String};
-    use std::vector;
 
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{TxContext};

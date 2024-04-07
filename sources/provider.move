@@ -113,6 +113,22 @@ module suipass::provider {
         request.requester
     }
 
+    public fun score(provider: &Provider, criteria: &vector<u8>): u16 {
+        let i = 0;
+        let sum = 0;
+        loop {
+            if (i == vector::length(criteria)) break;
+            i = i + 1;
+
+            let criterion_id = vector::borrow(criteria, i);
+            let criterion = vector::borrow(&provider.criteria, (*criterion_id as u64));
+
+            sum = sum + (criterion.weight as u16);
+        };
+        sum * provider.max_score
+    }
+
+
     //======================================================================
     // Friend required functions
     //======================================================================
