@@ -12,6 +12,7 @@ module suipass::suipass_test {
     use sui::test_utils::assert_eq;
 
     use suipass::suipass::{Self, SuiPass};
+    use suipass::provider;
 
     /* Default values */
 
@@ -22,7 +23,7 @@ module suipass::suipass_test {
     #[test]
     fun test_flow_success() {
         let provider_admin = @0xb;
-        let buyer = @0xc;
+        let requester = @0xc;
 
         let scenario_val = test_scenario::begin(OWNER);
         let scenario = &mut scenario_val;
@@ -53,8 +54,8 @@ module suipass::suipass_test {
             let suipass_cap = test_scenario::take_from_sender<suipass::AdminCap>(scenario);
 
             let criteria = vector::empty();
-            vector::push_back(&mut criteria, b"Created at least 90 days ago.A");
             vector::push_back(&mut criteria, b"Created at least 180 days ago.#");
+            vector::push_back(&mut criteria, b"Created at least 90 days ago.A");
 
             suipass::add_provider(
                 &suipass_cap,
@@ -78,108 +79,94 @@ module suipass::suipass_test {
             // View Suipass
             let suipass = test_scenario::take_shared<suipass::SuiPass>(scenario);
             print(&string::utf8(b"-----------------------------------------------"));
-            print(&string::utf8(b"Suipass object - After created a lootbox"));
+            print(&string::utf8(b"Suipass object - After created provider"));
             print(&string::utf8(b"-----------------------------------------------"));
             print(&suipass);
             test_scenario::return_shared(suipass);
         };
 
-        // test_scenario::next_tx(scenario, OWNER);
-        // {
-        //     // Buy Lootbox
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     print(&string::utf8(b"Purchase lootbox"));
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     let suipass = test_scenario::take_shared<suipass::Suipass>(scenario);
-        //
-        //     // Get lootbox info
-        //     let lootbox_id = 0;
-        //     let lootbox_ref = suipass::lootbox(&suipass, lootbox_id);
-        //     let price = suipass::lootbox_price(lootbox_ref);
-        //     let quantity_to_buy = 1;
-        //
-        //     print(lootbox_ref);
-        //
-        //     // Mint testing coin to buy
-        //     let payment_coin = sui::coin::mint_for_testing<SUI>(
-        //         price * quantity_to_buy, 
-        //         test_scenario::ctx(scenario)
-        //     );
-        //
-        //     suipass::purchase_lootbox(
-        //         &mut suipass,
-        //         suipass::lootbox_id(lootbox_ref),
-        //         quantity_to_buy,
-        //         buyer,
-        //         &mut payment_coin,
-        //         test_scenario::ctx(scenario)
-        //     );
-        //
-        //     test_scenario::return_shared(suipass);
-        //     coin::destroy_zero(payment_coin);
-        // };
-        //
-        // let tx = test_scenario::next_tx(scenario, buyer);
-        // {
-        //     // View purchased lootbox
-        //     let suipass = test_scenario::take_shared<suipass::Suipass>(scenario);
-        //     let lootbox_id = 0;
-        //     let lootbox_ref = suipass::lootbox(&suipass, lootbox_id);
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     print(&string::utf8(b"Suipass object - After purchased a lootbox"));
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     print(&suipass);
-        //
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     print(&string::utf8(b"Purchased Lootbox object - In buyer wallet"));
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     let purchased_lootbox = test_scenario::take_from_sender<suipass::PurchasedLootBox>(scenario);
-        //     assert_eq(suipass::purchased_lootbox_id(&purchased_lootbox), suipass::lootbox_id(lootbox_ref));
-        //
-        //     print(&purchased_lootbox);
-        //
-        //     test_scenario::return_shared(suipass);
-        //     test_scenario::return_to_sender(scenario, purchased_lootbox);
-        // };
-        //
-        // let tx = test_scenario::next_tx(scenario, buyer);
-        // {
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     print(&string::utf8(b"Open Purchased Lootbox - Reward"));
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     // Use purchased lootbox
-        //     let suipass = test_scenario::take_shared<suipass::Suipass>(scenario);
-        //     let purchased_lootbox = test_scenario::take_from_sender<suipass::PurchasedLootBox>(scenario);
-        //
-        //     // Will receive some reward
-        //     let reward = suipass::open_lootbox(
-        //         &mut suipass,
-        //         purchased_lootbox,
-        //         test_scenario::ctx(scenario)
-        //     );
-        //
-        //     print(&reward);
-        //
-        //     // NOTE: Just burn for testing - in pratice, this reward will be sent to the user wallet
-        //     coin::burn_for_testing(reward);
-        //     test_scenario::return_shared(suipass);
-        // };
-        //
-        // let tx = test_scenario::next_tx(scenario, buyer);
-        // {
-        //     // View Suipass
-        //     let suipass = test_scenario::take_shared<suipass::Suipass>(scenario);
-        //     let lootbox_id = 0;
-        //     let lootbox_ref = suipass::lootbox(&suipass, lootbox_id);
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     print(&string::utf8(b"Suipass object - After opened a lootbox"));
-        //     print(&string::utf8(b"-----------------------------------------------"));
-        //     print(&suipass);
-        //     // WARN: Uncomment the line below to prove that there are no PurchasedLootBox in user wallet
-        //     //       (it will cause an error)
-        //     // let purchased_lootbox = test_scenario::take_from_sender<suipass::PurchasedLootBox>(scenario);
-        //     test_scenario::return_shared(suipass);
-        // };
+        test_scenario::next_tx(scenario, requester);
+        {
+            // Submit request
+            print(&string::utf8(b"-----------------------------------------------"));
+            print(&string::utf8(b"Submit Request"));
+            print(&string::utf8(b"-----------------------------------------------"));
+            let suipass = test_scenario::take_shared<suipass::SuiPass>(scenario);
+
+            // Get Provider info
+            let (provider_id, provider) = suipass::providers(&suipass, 0);
+            print(provider_id);
+            print(provider);
+
+            // Mint testing coin to buy
+            let payment_coin = sui::coin::mint_for_testing<SUI>(
+                1_000_000, 
+                test_scenario::ctx(scenario)
+            );
+
+            suipass::submit_request(
+                &mut suipass,
+                *provider_id,
+                b"some proof",
+                &mut payment_coin,
+                test_scenario::ctx(scenario)
+            );
+
+            test_scenario::return_shared(suipass);
+            coin::destroy_zero(payment_coin);
+        };
+
+        let tx = test_scenario::next_tx(scenario, requester);
+        {
+            // View Request
+            let suipass = test_scenario::take_shared<suipass::SuiPass>(scenario);
+            print(&string::utf8(b"-----------------------------------------------"));
+            print(&string::utf8(b"Suipass object - After submit request"));
+            print(&string::utf8(b"-----------------------------------------------"));
+            print(&suipass);
+
+            test_scenario::return_shared(suipass);
+        };
+
+        let tx = test_scenario::next_tx(scenario, provider_admin);
+        {
+            print(&string::utf8(b"-----------------------------------------------"));
+            print(&string::utf8(b"Approve request"));
+            print(&string::utf8(b"-----------------------------------------------"));
+            let suipass = test_scenario::take_shared<suipass::SuiPass>(scenario);
+            let provider_cap = test_scenario::take_from_sender<provider::ProviderCap>(scenario);
+
+            let criteria = vector::empty();
+            vector::push_back(&mut criteria, 1);
+
+            suipass::resolve_request(
+                &provider_cap,
+                &mut suipass,
+                requester,
+                b"some evidence",
+                criteria,
+                test_scenario::ctx(scenario)
+            );
+
+            test_scenario::return_shared(suipass);
+            test_scenario::return_to_sender(scenario, provider_cap);
+        };
+
+        let tx = test_scenario::next_tx(scenario, requester);
+        {
+            // View Suipass
+            let suipass = test_scenario::take_shared<suipass::SuiPass>(scenario);
+            print(&string::utf8(b"-----------------------------------------------"));
+            print(&string::utf8(b"Suipass object - After resolve request"));
+            print(&string::utf8(b"-----------------------------------------------"));
+            print(&suipass);
+            test_scenario::return_shared(suipass);
+
+            let approval = test_scenario::take_from_sender<suipass::approval::Approval>(scenario);
+            print(&approval);
+            test_scenario::return_to_sender(scenario, approval);
+
+        };
 
         test_scenario::end(scenario_val);
     }
