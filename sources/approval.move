@@ -1,5 +1,7 @@
 module suipass::approval {
     use std::string::{Self, String};
+    use std::vector;
+
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{TxContext};
 
@@ -14,7 +16,7 @@ module suipass::approval {
     struct Approval has key, store {
         id: UID,
         provider: ID,
-        level: u16,
+        criteria: vector<u8>,
         evidence: String,
         issued_date: u64,
         // expiration_date: u64,
@@ -26,8 +28,8 @@ module suipass::approval {
 
     // only suipass owner can create a provider
     public(friend) fun new(
-        provider:ID,
-        level: u16,
+        provider: ID,
+        criteria: vector<u8>,
         evidence: vector<u8>,
         issued_date: u64,
         // expiration_date: u64,
@@ -36,7 +38,7 @@ module suipass::approval {
         Approval {
             id: object::new(ctx),
             provider,
-            level,
+            criteria,
             evidence: string::utf8(evidence),
             issued_date,
             // expiration_date
@@ -55,8 +57,8 @@ module suipass::approval {
         approval.provider
     }
 
-    public fun level(approval: &Approval): u16 {
-        approval.level
+    public fun criteria(approval: &Approval): vector<u8> {
+        approval.criteria
     }
 }
 

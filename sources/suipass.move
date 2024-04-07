@@ -104,11 +104,18 @@ module suipass::suipass {
         metadata: vector<u8>,
         submit_fee: u64,
         update_fee: u64,
-        total_levels: u16,
+        raw_criteria: vector<vector<u8>>,
         score: u16,
         ctx: &mut TxContext
     ) {
-        let (provider_cap, provider) = provider::create_provider(name, metadata, submit_fee, update_fee, total_levels, score, ctx);
+        let criteria = vector::empty<provider::Criterion>();
+        while (vector::length(&raw_criteria) != 0) {
+            let raw_criterion = vector::pop_back(&mut raw_criteria);
+            let index = (vector::length(&criteria) as u8);
+            vector::push_back(&mut criteria, provider::new_criterion(index, raw_criterion));
+        };
+
+        let (provider_cap, provider) = provider::create_provider(name, metadata, submit_fee, update_fee, score, criteria, ctx);
 
         let provider_id = provider::id(&provider);
         let event = ProviderAdded {
@@ -117,6 +124,7 @@ module suipass::suipass {
         };
 
         assert!(!vec_map::contains(&suipass.providers, &provider_id), EProviderAlreadyExist);
+
         vec_map::insert(&mut suipass.providers, provider_id, provider);
         transfer::public_transfer(provider_cap, owner);
         event::emit(event);
@@ -130,13 +138,13 @@ module suipass::suipass {
     //     // table::remove(&mut suipass.providers_data, provider);
     // }
 
-    public fun update_provider_score(_: &AdminCap, suipass: &mut SuiPass, provider: &Provider, score: u16, _: &mut TxContext) {
-        let id = provider::id(provider);
-        assert_provider_exist(suipass, id);
-
-        let provider = vec_map::get_mut(&mut suipass.providers, &id);
-        provider::update_max_score(provider, score);
-    }
+    // public fun update_provider_score(_: &AdminCap, suipass: &mut SuiPass, provider: &Provider, score: u16, _: &mut TxContext) {
+    //     let id = provider::id(provider);
+    //     assert_provider_exist(suipass, id);
+    //
+    //     let provider = vec_map::get_mut(&mut suipass.providers, &id);
+    //     provider::update_max_score(provider, score);
+    // }
 
     public fun submit_request(
         suipass: &mut SuiPass,
@@ -156,14 +164,16 @@ module suipass::suipass {
         });
     }
 
-    public fun reject_request(
+    public fun resolve_request(
         provider_cap: &ProviderCap,
         suipass: &mut SuiPass,
         request_id: address,
+        evidence: vector<u8>,
+        criteria: vector<u8>,
         ctx: &mut TxContext
     ) {
         let provider = vec_map::get_mut(&mut suipass.providers, &provider::id_from_cap(provider_cap));
-        let request = provider::resolve_request(provider_cap, provider, &request_id, evidence, level, ctx);
+        let request = provider::resolve_request(provider_cap, provider, &request_id, evidence, criteria, ctx);
         event::emit(RequestResolved {
             provider_id: provider::id(provider),
             requester: provider::requester(&request),
@@ -171,22 +181,20 @@ module suipass::suipass {
         });
     }
 
-    public fun resolve_request(
+    public fun reject_request(
         provider_cap: &ProviderCap,
         suipass: &mut SuiPass,
         request_id: address,
-        evidence: vector<u8>,
-        level: u16,
-        ctx: &mut TxContext
     ) {
         let provider = vec_map::get_mut(&mut suipass.providers, &provider::id_from_cap(provider_cap));
-        let request = provider::resolve_request(provider_cap, provider, &request_id, evidence, level, ctx);
+        let request = provider::reject_request(provider_cap, provider, &request_id);
         event::emit(RequestResolved {
             provider_id: provider::id(provider),
             requester: provider::requester(&request),
             request_id
         });
     }
+
 
     public fun get_provider_score(suipass: &SuiPass, provider: &Provider, _: &mut TxContext): u16 {
         let id = provider::id(provider);
@@ -251,4 +259,8 @@ module suipass::suipass {
     //======================================================================
     // Tests
     //======================================================================
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx)
+    }
 }

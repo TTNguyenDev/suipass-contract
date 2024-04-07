@@ -77,7 +77,8 @@ module suipass::user {
             let id = vector::borrow(&ids, len);
             let approval = vec_map::get(&user.approvals, id);
 
-            vec_map::insert(&mut result, *id, approval::level(approval));
+            // TODO: handle levels
+            vec_map::insert(&mut result, *id, 0)//approval::criteria(approval));
         };
         result
     }

@@ -40,11 +40,17 @@ module suipass::provider {
         update_fee: u64,
         balance: Balance<SUI>,
 
-        max_level: u16,
         max_score: u16,
 
+        criteria: vector<Criterion>,
         requests: VecMap<address, Request>,
         records: VecMap<address, Record>,
+    }
+
+    struct Criterion has store, drop {
+        id: u8,
+        desc: std::string::String, // description
+        weight: u8, // from 1 -> 100
     }
 
     struct Request has store, drop {
@@ -54,7 +60,7 @@ module suipass::provider {
 
     struct Record has store, drop {
         requester: address,
-        level: u16,
+        criteria: vector<u8>,
         evidence: String,
         issued_date: u64
     }
@@ -63,17 +69,17 @@ module suipass::provider {
     // Functions
     //======================================================================
 
-    public fun withdraw(provider_cap: &ProviderCap, provider: &mut Provider, ctx: &mut TxContext): coin::Coin<SUI> {
-        assert!(provider_cap.provider == object::uid_to_inner(&provider.id), ENotProviderOwner);
-
-        let amount = balance::value(&provider.balance);
-        let coin = coin::take(&mut provider.balance, amount, ctx);
-        coin
-    }
-
-    public fun add_balance(provider: &mut Provider, coin: coin::Coin<SUI>) {
-        coin::put(&mut provider.balance, coin)
-    }
+    // public fun withdraw(provider_cap: &ProviderCap, provider: &mut Provider, ctx: &mut TxContext): coin::Coin<SUI> {
+    //     assert!(provider_cap.provider == object::uid_to_inner(&provider.id), ENotProviderOwner);
+    //
+    //     let amount = balance::value(&provider.balance);
+    //     let coin = coin::take(&mut provider.balance, amount, ctx);
+    //     coin
+    // }
+    //
+    // public fun add_balance(provider: &mut Provider, coin: coin::Coin<SUI>) {
+    //     coin::put(&mut provider.balance, coin)
+    // }
 
     //======================================================================
     // Accessors
@@ -95,8 +101,8 @@ module suipass::provider {
         provider.max_score
     }
 
-    public fun max_level(provider: &Provider): u16 { 
-        provider.max_level
+    public fun max_level(_: &Provider): u16 { 
+        100
     }
 
     public fun submit_fee(provider: &Provider): u64 {
@@ -111,13 +117,22 @@ module suipass::provider {
     // Friend required functions
     //======================================================================
 
+    public(friend) fun new_criterion(id: u8, data: vector<u8>): Criterion {
+        let weight = vector::pop_back(&mut data); 
+        Criterion {
+            id,
+            desc: string::utf8(data),
+            weight,
+        }
+    }
+
     public(friend) fun create_provider(
         name: vector<u8>,
         metadata: vector<u8>,
         submit_fee: u64,
         update_fee: u64,
-        max_level: u16,
         max_score: u16,
+        criteria: vector<Criterion>,
         ctx: &mut TxContext
     ): (ProviderCap, Provider) {
         let uid = object::new(ctx);
@@ -133,7 +148,7 @@ module suipass::provider {
             submit_fee,
             update_fee,
             balance: balance::zero(),
-            max_level,
+            criteria,
             max_score,
             requests: vec_map::empty(),
             records: vec_map::empty(),
@@ -141,12 +156,12 @@ module suipass::provider {
         (cap, provider)
     }
 
-    public(friend) fun update_max_score(
-        provider: &mut Provider,
-        score: u16,
-    ) {
-        provider.max_score = score
-    }
+    // public(friend) fun update_max_score(
+    //     provider: &mut Provider,
+    //     score: u16,
+    // ) {
+    //     provider.max_score = score
+    // }
 
     public(friend) fun submit_request(
         provider: &mut Provider,
@@ -181,7 +196,7 @@ module suipass::provider {
         provider: &mut Provider,
         requester: &address, // HACK: request_id
         evidence: vector<u8>,
-        level: u16,
+        criteria: vector<u8>,
         ctx: &mut TxContext
     ): Request {
         // HACK: Trick the request id
@@ -194,7 +209,7 @@ module suipass::provider {
         let (_, request) = vec_map::remove(&mut provider.requests, request_id);
     
         let issued_date = tx_context::epoch_timestamp_ms(ctx);
-        let record = Record { requester: *requester, level, evidence: string::utf8(evidence), issued_date };
+        let record = Record { requester: *requester, criteria, evidence: string::utf8(evidence), issued_date };
 
         if (vec_map::contains(&provider.records, &request.requester)) {
             let cur = vec_map::get_mut(&mut provider.records, &request.requester);
@@ -203,8 +218,7 @@ module suipass::provider {
             vec_map::insert(&mut provider.records, request.requester, record);
         };
 
-
-        let approval = approval::new(id(provider), level, evidence, issued_date, ctx);
+        let approval = approval::new(id(provider), criteria, evidence, issued_date, ctx);
         transfer::public_transfer(approval, request.requester);
         request
     }
@@ -213,14 +227,12 @@ module suipass::provider {
         provider_cap: &ProviderCap,
         provider: &mut Provider,
         requester: &address, // HACK: request_id
-        ctx: &mut TxContext
     ): Request {
         // HACK: Trick the request id
         let request_id = &address::from_bytes(hash::blake2b256(&address::to_bytes(*requester)));
 
         assert!(provider_cap.provider == object::uid_to_inner(&provider.id), ENotProviderOwner);
         assert!(vec_map::contains(&provider.requests, request_id), EInvalidRequest);
-        assert!(vector::length(&evidence) > 0, ERequestRejected);
 
         let (_, request) = vec_map::remove(&mut provider.requests, request_id);
     
